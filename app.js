@@ -159,7 +159,7 @@
   document.querySelectorAll('[data-close-modal]').forEach(b=>b.addEventListener('click',()=>closeModal(b.dataset.closeModal)));
   document.querySelectorAll('.modal-backdrop').forEach(m=>m.addEventListener('click',e=>{if(e.target===m) m.classList.add('hidden')}));
 
-  function navigate(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id===id)); window.scrollTo({top:0,behavior:'smooth'}); if(id==='scoreScreen')renderScoreTable(); if(id==='yakuScreen')renderYakuTable(); if(id==='nanikiruScreen' && !nanikiruHand.length)newNanikiru(); }
+  function navigate(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id===id)); window.scrollTo({top:0,behavior:'smooth'}); if(id==='scoreScreen')renderScoreTable(); if(id==='yakuScreen')renderYakuTable(); if(id==='nanikiruScreen' && !nanikiruHand.length)newNanikiru(); if(id==='chinitsuScreen' && !chinitsuHand.length)newChinitsu(); }
   document.querySelectorAll('[data-screen]').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.screen)));
   document.querySelectorAll('.backBtn').forEach(b=>b.addEventListener('click',()=>navigate('homeScreen')));
   el('homeBtn').onclick=()=>navigate('homeScreen');
@@ -1149,57 +1149,55 @@
   }
   el('m_agari').addEventListener('change',syncManualConflicts); el('m_special').addEventListener('change',syncManualConflicts);
 
-  // ===== v28: 何切る問題（牌効率） =====
-  const NANIKIRU_HANDS = [
-    ['2m','3m','4m','5m','6m','2p','3p','4p','6p','7p','3s','4s','5s','9s'],
-    ['1m','2m','3m','4m','5m','7m','8m','2p','3p','4p','5s','6s','7s','1z'],
-    ['2m','3m','5m','6m','7m','3p','4p','5p','6p','7p','2s','3s','4s','8s'],
-    ['1m','2m','3m','6m','7m','8m','2p','3p','5p','6p','7s','8s','9s','5z'],
-    ['3m','4m','5m','6m','7m','2p','3p','4p','7p','8p','2s','3s','4s','1z'],
-    ['2m','3m','4m','6m','7m','3p','4p','5p','5p','6p','4s','5s','7s','8s'],
-    ['1m','3m','4m','5m','7m','8m','9m','2p','3p','4p','6s','7s','8s','2z'],
-    ['2m','3m','4m','4m','5m','6m','2p','4p','5p','6p','3s','4s','5s','9p'],
-    ['1m','2m','4m','5m','6m','7m','8m','3p','4p','5p','6s','7s','8s','6z'],
-    ['3m','4m','6m','7m','8m','2p','3p','4p','5p','6p','7s','8s','9s','3z'],
-    ['2m','3m','4m','5m','5m','6m','7m','2p','3p','4p','4s','5s','6s','9p'],
-    ['1m','2m','3m','4m','6m','7m','8m','3p','4p','5p','5s','6s','8s','9s']
+  // ===== v29: 上級何切る問題 + チンイツ待ちクイズ =====
+  // mjclv.com の「巡目・ツモ牌を分離・良形変化・手役・場況も考える」構成を参考にしたオリジナル問題。
+  const NANIKIRU_PROBLEMS = [
+    {turn:6,dora:'4p',hand:['2m','3m','4m','4m','5m','6m','3p','4p','5p','6p','7p','4s','5s'],draw:'6s',focus:'完全一向聴と良形変化'},
+    {turn:7,dora:'7s',hand:['1m','2m','3m','4m','5m','7m','8m','2p','3p','4p','5s','6s','7s'],draw:'6m',focus:'両面固定と受け入れ'},
+    {turn:8,dora:'3m',hand:['2m','3m','5m','6m','7m','3p','4p','5p','6p','7p','2s','3s','4s'],draw:'8s',focus:'手役よりテンパイ速度'},
+    {turn:6,dora:'5s',hand:['1m','2m','3m','6m','7m','8m','2p','3p','5p','6p','7s','8s','9s'],draw:'4p',focus:'複合ターツの比較'},
+    {turn:7,dora:'6p',hand:['3m','4m','5m','6m','7m','2p','3p','4p','7p','8p','2s','3s','4s'],draw:'6p',focus:'ドラと良形の両立'},
+    {turn:8,dora:'2s',hand:['2m','3m','4m','6m','7m','3p','4p','5p','5p','6p','4s','5s','7s'],draw:'8s',focus:'雀頭候補と両面変化'},
+    {turn:9,dora:'8m',hand:['1m','3m','4m','5m','7m','8m','9m','2p','3p','4p','6s','7s','8s'],draw:'2z',focus:'終盤寄りの速度優先'},
+    {turn:5,dora:'5p',hand:['2m','3m','4m','4m','5m','6m','2p','4p','5p','6p','3s','4s','5s'],draw:'3p',focus:'完全一向聴への組み替え'},
+    {turn:7,dora:'7m',hand:['1m','2m','4m','5m','6m','7m','8m','3p','4p','5p','6s','7s','8s'],draw:'3m',focus:'一通・三色と牌効率'},
+    {turn:8,dora:'4s',hand:['3m','4m','6m','7m','8m','2p','3p','4p','5p','6p','7s','8s','9s'],draw:'5m',focus:'好形テンパイ率'},
+    {turn:6,dora:'5m',hand:['2m','3m','4m','5m','5m','6m','7m','2p','3p','4p','4s','5s','6s'],draw:'9p',focus:'浮き牌と雀頭の価値'},
+    {turn:7,dora:'6s',hand:['1m','2m','3m','4m','6m','7m','8m','3p','4p','5p','5s','6s','8s'],draw:'7s',focus:'三色変化と受け入れ'}
   ];
-  let nanikiruHand=[], nanikiruAnswered=false, nanikiruLast=-1;
+  let nanikiruHand=[], nanikiruAnswered=false, nanikiruLast=-1, nanikiruProblem=null;
   function arr34(arr){const a=Array(34).fill(0);arr.forEach(t=>{const i=idOf(t);if(i>=0)a[i]++});return a}
-  function normalShanten(arr){
-    const c=arr34(arr); let best=8;
-    function dfs(i,m,t,p){
-      while(i<34 && c[i]===0)i++;
-      if(i>=34){ t=Math.min(t,4-m); best=Math.min(best,8-m*2-t-p); return; }
-      if(c[i]>=3){c[i]-=3;dfs(i,m+1,t,p);c[i]+=3}
-      if(i<27 && i%9<=6 && c[i+1]&&c[i+2]){c[i]--;c[i+1]--;c[i+2]--;dfs(i,m+1,t,p);c[i]++;c[i+1]++;c[i+2]++}
-      if(!p && c[i]>=2){c[i]-=2;dfs(i,m,t,1);c[i]+=2}
-      if(t<4-m && c[i]>=2){c[i]-=2;dfs(i,m,t+1,p);c[i]+=2}
-      if(t<4-m && i<27 && i%9<=7 && c[i+1]){c[i]--;c[i+1]--;dfs(i,m,t+1,p);c[i]++;c[i+1]++}
-      if(t<4-m && i<27 && i%9<=6 && c[i+2]){c[i]--;c[i+2]--;dfs(i,m,t+1,p);c[i]++;c[i+2]++}
-      c[i]--;dfs(i,m,t,p);c[i]++;
-    }
-    dfs(0,0,0,0); return best;
-  }
+  function normalShanten(arr){const c=arr34(arr);let best=8;function dfs(i,m,t,p){while(i<34&&c[i]===0)i++;if(i>=34){t=Math.min(t,4-m);best=Math.min(best,8-m*2-t-p);return}if(c[i]>=3){c[i]-=3;dfs(i,m+1,t,p);c[i]+=3}if(i<27&&i%9<=6&&c[i+1]&&c[i+2]){c[i]--;c[i+1]--;c[i+2]--;dfs(i,m+1,t,p);c[i]++;c[i+1]++;c[i+2]++}if(!p&&c[i]>=2){c[i]-=2;dfs(i,m,t,1);c[i]+=2}if(t<4-m&&c[i]>=2){c[i]-=2;dfs(i,m,t+1,p);c[i]+=2}if(t<4-m&&i<27&&i%9<=7&&c[i+1]){c[i]--;c[i+1]--;dfs(i,m,t+1,p);c[i]++;c[i+1]++}if(t<4-m&&i<27&&i%9<=6&&c[i+2]){c[i]--;c[i+2]--;dfs(i,m,t+1,p);c[i]++;c[i+2]++}c[i]--;dfs(i,m,t,p);c[i]++}dfs(0,0,0,0);return best}
   function chiitoiShanten(arr){const c=arr34(arr);let pairs=0,types=0;c.forEach(n=>{if(n){types++;if(n>=2)pairs++}});return 6-pairs+Math.max(0,7-types)}
-  function kokushiShanten(arr){const c=arr34(arr), ids=[0,8,9,17,18,26,27,28,29,30,31,32,33];let u=0,p=0;ids.forEach(i=>{if(c[i])u++;if(c[i]>=2)p=1});return 13-u-p}
+  function kokushiShanten(arr){const c=arr34(arr),ids=[0,8,9,17,18,26,27,28,29,30,31,32,33];let u=0,p=0;ids.forEach(i=>{if(c[i])u++;if(c[i]>=2)p=1});return 13-u-p}
   function nkShanten(arr){return Math.min(normalShanten(arr),chiitoiShanten(arr),kokushiShanten(arr))}
-  function effectiveFor(arr, visible){const sh=nkShanten(arr), out=[];TYPES.forEach(t=>{const used=(visible[t]||0);if(used>=4)return;const n=nkShanten([...arr,t]);if(n<sh)out.push({tile:t,left:4-used})});return {sh,tiles:out,count:out.reduce((a,x)=>a+x.left,0)}}
+  function effectiveFor(arr,visible){const sh=nkShanten(arr),out=[];TYPES.forEach(t=>{const used=visible[t]||0;if(used>=4)return;const n=nkShanten([...arr,t]);if(n<sh)out.push({tile:t,left:4-used})});return {sh,tiles:out,count:out.reduce((a,x)=>a+x.left,0)}}
   function tileJa(t){const n=t[0],s=t[1];if(s==='m')return n+'萬';if(s==='p')return n+'筒';if(s==='s')return n+'索';return ['','東','南','西','北','白','發','中'][+n]}
-  function rankNanikiru(hand){const vis=counts(hand), seen=new Set(), rows=[];hand.forEach((d,idx)=>{if(seen.has(d))return;seen.add(d);const rest=[...hand];rest.splice(idx,1);const e=effectiveFor(rest,vis);rows.push({discard:d,...e})});rows.sort((a,b)=>a.sh-b.sh||b.count-a.count||b.tiles.length-a.tiles.length||idOf(a.discard)-idOf(b.discard));return rows}
-  function nkExplain(r,best){
-    const shText=r.sh<0?'テンパイ完成':r.sh===0?'テンパイ':`${r.sh}シャンテン`;
-    if(r.sh>best.sh)return `シャンテン数が${best.sh}より悪化するため、牌効率では優先度が下がる。`;
-    if(r.count===best.count)return `${shText}を維持し、トップ候補と同数の受け入れを確保できる。形や手役によって選択肢になる。`;
-    const diff=best.count-r.count;
-    return `${shText}を維持できるが、1位候補より受け入れが${diff}枚少ない。残す形や手役との兼ね合いがポイント。`;
-  }
-  function renderNanikiruHand(){const box=el('nanikiruHand');if(!box)return;box.innerHTML='';nanikiruHand.forEach((t,i)=>{const b=document.createElement('button');b.className='nanikiru-tile'+(nanikiruAnswered&&i===nanikiruLast?' chosen':'');b.innerHTML=tileImg(t);b.title=tileJa(t)+'を切る';b.disabled=nanikiruAnswered;b.onclick=()=>answerNanikiru(i);box.appendChild(b)})}
-  function newNanikiru(){let n=Math.floor(Math.random()*NANIKIRU_HANDS.length);if(NANIKIRU_HANDS.length>1)while(n===newNanikiru.last)n=Math.floor(Math.random()*NANIKIRU_HANDS.length);newNanikiru.last=n;nanikiruHand=sortedTiles([...NANIKIRU_HANDS[n]]);nanikiruAnswered=false;nanikiruLast=-1;renderNanikiruHand();el('nanikiruStatus').textContent='切る牌をタップして回答してね';el('nanikiruResult').innerHTML='<div class="muted">回答すると上位3候補を表示するよ</div>'}
-  function answerNanikiru(i){if(nanikiruAnswered)return;nanikiruAnswered=true;nanikiruLast=i;const chosen=nanikiruHand[i],rank=rankNanikiru(nanikiruHand),pos=rank.findIndex(x=>x.discard===chosen);renderNanikiruHand();el('nanikiruStatus').textContent=pos===0?'あなたの選択は牌効率1位！':`あなたの選択：${tileJa(chosen)}（牌効率 ${pos+1}位）`;const best=rank[0];el('nanikiruResult').innerHTML=`<div class="nanikiru-user">あなたの回答：${tileImg(chosen,'')} ${tileJa(chosen)}</div>`+rank.slice(0,3).map((r,k)=>`<div class="nanikiru-rank ${k===0?'top':''}"><div class="nanikiru-rank-head"><div class="nanikiru-rank-title"><b>${k+1}位</b>${tileImg(r.discard,'')}<strong>${tileJa(r.discard)}切り</strong></div></div><div class="nanikiru-stats"><span class="nanikiru-chip">${r.sh<0?'アガリ':r.sh===0?'テンパイ':r.sh+'シャンテン'}</span><span class="nanikiru-chip">受け入れ ${r.tiles.length}種 ${r.count}枚</span></div><div>${nkExplain(r,best)}</div><div class="nanikiru-effective"><span class="muted">有効牌：</span>${r.tiles.length?r.tiles.map(x=>`${tileImg(x.tile,'')}<small>×${x.left}</small>`).join(''):'—'}</div></div>`).join('')}
+  function advancedScore(row,problem){let score=-row.sh*10000+row.count*30+row.tiles.length*8;const d=problem.dora;if(row.discard===d)score-=80;const n=+row.discard[0],s=row.discard[1];if(s!=='z'&&n>=2&&n<=8)score-=3;return score}
+  function rankNanikiru(hand){const vis=counts(hand),seen=new Set(),rows=[];hand.forEach((d,idx)=>{if(seen.has(d))return;seen.add(d);const rest=[...hand];rest.splice(idx,1);const e=effectiveFor(rest,vis);rows.push({discard:d,...e})});rows.forEach(r=>r.advanced=advancedScore(r,nanikiruProblem));rows.sort((a,b)=>b.advanced-a.advanced||a.sh-b.sh||b.count-a.count||idOf(a.discard)-idOf(b.discard));return rows}
+  function nkExplain(r,best,k){const sh=r.sh<0?'アガリ形':r.sh===0?'テンパイ':`${r.sh}シャンテン`;let x=`${sh}で受け入れは${r.tiles.length}種${r.count}枚。`;if(k===0)x+=` 速度を落としにくく、${nanikiruProblem.focus}を比較した総合候補。`;else{x+=` 1位より受け入れが${Math.max(0,best.count-r.count)}枚少ない。`;if(r.discard===nanikiruProblem.dora)x+=' ドラを手放す点もマイナス。';else x+=' 形・手役・ドラ受けまで含めると次点。'}return x}
+  function renderNanikiruHand(){const box=el('nanikiruHand');if(!box)return;box.innerHTML='';nanikiruHand.forEach((t,i)=>{const b=document.createElement('button');b.className='nanikiru-tile'+(nanikiruAnswered&&i===nanikiruLast?' chosen':'')+(nanikiruProblem&&i===nanikiruHand.length-1?' drawn':'');b.innerHTML=tileImg(t);b.title=tileJa(t)+'を切る';b.disabled=nanikiruAnswered;b.onclick=()=>answerNanikiru(i);box.appendChild(b)})}
+  function newNanikiru(){let n=Math.floor(Math.random()*NANIKIRU_PROBLEMS.length);if(NANIKIRU_PROBLEMS.length>1)while(n===newNanikiru.last)n=Math.floor(Math.random()*NANIKIRU_PROBLEMS.length);newNanikiru.last=n;nanikiruProblem=NANIKIRU_PROBLEMS[n];nanikiruHand=[...sortedTiles(nanikiruProblem.hand),nanikiruProblem.draw];nanikiruAnswered=false;nanikiruLast=-1;renderNanikiruHand();el('nanikiruLevel').textContent='上級・実戦牌効率';el('nanikiruMeta').innerHTML=`${nanikiruProblem.turn}巡目・ドラ ${tileImg(nanikiruProblem.dora,'')} ${tileJa(nanikiruProblem.dora)}　<span class="draw-label">右端がツモ牌</span>`;el('nanikiruStatus').textContent='巡目・ドラ・良形変化も考えて切る牌を選んでね';el('nanikiruResult').innerHTML='<div class="muted">回答すると上位3候補と理由を表示するよ</div>'}
+  function answerNanikiru(i){if(nanikiruAnswered)return;nanikiruAnswered=true;nanikiruLast=i;const chosen=nanikiruHand[i],rank=rankNanikiru(nanikiruHand),pos=rank.findIndex(x=>x.discard===chosen),best=rank[0];renderNanikiruHand();el('nanikiruStatus').textContent=pos===0?'総合評価の最上位候補！':`あなたの選択：${tileJa(chosen)}（総合 ${pos+1}位）`;el('nanikiruResult').innerHTML=`<div class="nanikiru-user">あなたの回答：${tileImg(chosen,'')} ${tileJa(chosen)}</div><div class="advanced-note">評価軸：シャンテン数 → 受け入れ → 良形変化・ドラ保持。問題テーマ：${nanikiruProblem.focus}</div>`+rank.slice(0,3).map((r,k)=>`<div class="nanikiru-rank ${k===0?'top':''}"><div class="nanikiru-rank-title"><b>${k+1}位</b>${tileImg(r.discard,'')}<strong>${tileJa(r.discard)}切り</strong></div><div class="nanikiru-stats"><span class="nanikiru-chip">${r.sh===0?'テンパイ':r.sh+'シャンテン'}</span><span class="nanikiru-chip">受け入れ ${r.tiles.length}種 ${r.count}枚</span></div><div>${nkExplain(r,best,k)}</div><div class="nanikiru-effective"><span class="muted">有効牌：</span>${r.tiles.length?r.tiles.map(x=>`${tileImg(x.tile,'')}<small>×${x.left}</small>`).join(''):'—'}</div></div>`).join('')}
   if(el('newNanikiru'))el('newNanikiru').onclick=newNanikiru;
-  newNanikiru();
 
+  // 清一色13枚の待ちを、通常手の分解を使って厳密に判定する。
+  let chinitsuHand=[],chinitsuWaits=[],chinitsuSelected=new Set(),chinitsuSuit='m';
+  const CHINITSU_SEEDS=[
+    ['1m','1m','1m','2m','3m','4m','5m','6m','7m','7m','8m','9m','9m'],
+    ['1m','2m','3m','3m','4m','5m','5m','6m','7m','7m','8m','9m','9m'],
+    ['2m','2m','3m','3m','4m','4m','5m','5m','6m','6m','7m','8m','9m'],
+    ['1m','2m','2m','3m','3m','4m','4m','5m','5m','6m','7m','8m','9m'],
+    ['1m','1m','2m','3m','4m','4m','5m','6m','7m','7m','8m','8m','9m'],
+    ['1m','2m','3m','4m','4m','4m','5m','6m','7m','8m','8m','8m','9m'],
+    ['2m','3m','3m','4m','4m','5m','5m','6m','6m','7m','7m','8m','8m'],
+    ['1m','1m','2m','2m','3m','3m','4m','5m','6m','7m','8m','9m','9m']
+  ];
+  function chinitsuCalcWaits(arr){const out=[],c=counts(arr);for(let n=1;n<=9;n++){const t=n+chinitsuSuit;if((c[t]||0)>=4)continue;if(decompositions([...arr,t],4).length>0)out.push(t)}return out}
+  function renderChinitsu(){el('chinitsuHand').innerHTML=chinitsuHand.map(t=>`<span class="chinitsu-hand-tile">${tileImg(t,'')}</span>`).join('');const box=el('chinitsuChoices');box.innerHTML='';for(let n=1;n<=9;n++){const t=n+chinitsuSuit,b=document.createElement('button');b.className='chinitsu-choice'+(chinitsuSelected.has(t)?' selected':'');b.innerHTML=tileImg(t);b.onclick=()=>{chinitsuSelected.has(t)?chinitsuSelected.delete(t):chinitsuSelected.add(t);renderChinitsu()};box.appendChild(b)}}
+  function newChinitsu(){let n=Math.floor(Math.random()*CHINITSU_SEEDS.length);if(CHINITSU_SEEDS.length>1)while(n===newChinitsu.last)n=Math.floor(Math.random()*CHINITSU_SEEDS.length);newChinitsu.last=n;const suits=['m','p','s'];chinitsuSuit=suits[Math.floor(Math.random()*3)];chinitsuHand=CHINITSU_SEEDS[n].map(t=>t[0]+chinitsuSuit);chinitsuWaits=chinitsuCalcWaits(chinitsuHand);if(!chinitsuWaits.length){chinitsuSuit='m';chinitsuHand=[...CHINITSU_SEEDS[0]];chinitsuWaits=chinitsuCalcWaits(chinitsuHand)}chinitsuSelected.clear();renderChinitsu();el('chinitsuMeta').textContent=`${chinitsuSuit==='m'?'萬子':chinitsuSuit==='p'?'筒子':'索子'}の清一色・13枚`;el('chinitsuStatus').textContent='待ち牌をすべて選んで回答してね';el('chinitsuResult').innerHTML='<div class="muted">回答後に正解の待ちと形の見方を表示するよ</div>'}
+  function answerChinitsu(){const a=[...chinitsuSelected].sort((x,y)=>idOf(x)-idOf(y)),w=[...chinitsuWaits].sort((x,y)=>idOf(x)-idOf(y)),ok=a.length===w.length&&a.every((x,i)=>x===w[i]);el('chinitsuStatus').textContent=ok?'正解！ 全ての待ちを読めてる。':`不正解。正解は${w.length}種。`;const total=w.reduce((sum,t)=>sum+Math.max(0,4-(counts(chinitsuHand)[t]||0)),0);el('chinitsuResult').innerHTML=`<div class="chinitsu-answer"><b>正解：${w.length}種 ${total}枚</b><div class="chinitsu-waits">${w.map(t=>tileImg(t,'')).join('')}</div></div><p>清一色は、1つの分解だけで決めず「雀頭をどこに置けるか」「刻子として取るか順子として取るか」を変えて全パターンを見るのがコツ。この問題では ${w.map(tileJa).join('・')} を加えたときに4面子1雀頭へ分解できる。</p><p class="muted">選択した待ち：${a.length?a.map(tileJa).join('・'):'なし'}</p>`}
+  if(el('newChinitsu'))el('newChinitsu').onclick=newChinitsu;if(el('answerChinitsu'))el('answerChinitsu').onclick=answerChinitsu;
   // Initial setup
   updateRuleSummary();loadSettingsUI();syncPlayerModeUI();syncRuleEffects();updateSpecialLabel();syncManualConflicts();renderHand();renderWin();renderMelds();renderWaitHand();renderWaitResult();manualCalc();analyze();
   if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=23',{updateViaCache:'none'}).catch(()=>{}));}
